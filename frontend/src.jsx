@@ -745,85 +745,65 @@ function CustomerEnrollment() {
             <div>
               <div className="wizard-step-header">
                 <span className="wizard-step-tag">Step 3 of 4</span>
-                <h2>Choose Your EMI Shield Plan</h2>
-                <p className="wizard-step-desc">Select the risk mitigation coverage tier suited to your financial buffer needs.</p>
+                <h2>EMI Shield Pro Protection Plan</h2>
+                <p className="wizard-step-desc">Institutional-grade loan risk mitigation and EMI continuity protection.</p>
               </div>
 
-              <div className="plan-selection-grid">
-                {/* Plan 1: EMI Shield */}
-                <div
-                  className={`plan-card ${formData.plan_name === 'EMI Shield' ? 'selected' : ''}`}
-                  onClick={() => {
-                    setFormData(prev => ({
-                      ...prev,
-                      plan_name: 'EMI Shield',
-                      plan_rate: 7.0,
-                      repayment_period_days: 60
-                    }));
-                  }}
-                >
-                  <div className="plan-card-header">
+              <div className="plan-single-container">
+                <div className="plan-card-fullwidth">
+                  <div className="plan-fullwidth-header">
                     <div>
-                      <span className="badge badge-gold">Standard</span>
-                      <h3 className="plan-card-title" style={{ marginTop: '6px' }}>EMI Shield</h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                        <span className="badge badge-navy">Recommended Package</span>
+                        <span className="badge badge-gold">Active Protection</span>
+                        <span className="plan-popular-tag">Most Comprehensive</span>
+                      </div>
+                      <h3 className="plan-card-title" style={{ fontSize: '22px', margin: '4px 0' }}>EMI Shield Pro</h3>
+                      <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', margin: 0 }}>
+                        Maximum institutional coverage with 90-day grace protection and zero interest buffer.
+                      </p>
                     </div>
                   </div>
-                  <div className="plan-rate-display">
-                    <span className="plan-rate-num">7</span>
-                    <span className="plan-rate-pct">%</span>
-                    <span className="plan-rate-lbl">Annual Subscription</span>
-                  </div>
-                  <ul className="plan-specs-list">
-                    <li className="plan-spec-item"><Shield size={16} /> <strong>3 times / year</strong> benefit eligibility</li>
-                    <li className="plan-spec-item"><Clock size={16} /> <strong>60 days</strong> repayment buffer window</li>
-                    <li className="plan-spec-item"><CheckCircle size={16} /> <strong>Zero interest</strong> within 60 days</li>
-                    <li className="plan-spec-item"><FileText size={16} /> 12.99% activation service charge</li>
-                    <li className="plan-spec-item"><Layers size={16} /> 60-day initial activation waiting period</li>
-                  </ul>
-                  <div className="plan-fee-calc-box">
-                    <span className="plan-fee-calc-lbl">Projected Annual Fee</span>
-                    <span className="plan-fee-calc-val">
-                      {formatINR(Number(formData.emi_amount) * 0.07)}
-                    </span>
-                  </div>
-                </div>
 
-                {/* Plan 2: EMI Shield Pro */}
-                <div
-                  className={`plan-card ${formData.plan_name === 'EMI Shield Pro' ? 'selected' : ''}`}
-                  onClick={() => {
-                    setFormData(prev => ({
-                      ...prev,
-                      plan_name: 'EMI Shield Pro',
-                      plan_rate: 18.99,
-                      repayment_period_days: 90
-                    }));
-                  }}
-                >
-                  <div className="plan-card-header">
-                    <div>
-                      <span className="badge badge-navy">Recommended</span>
-                      <h3 className="plan-card-title" style={{ marginTop: '6px' }}>EMI Shield Pro</h3>
+                  <div className="plan-fullwidth-grid">
+                    <div className="plan-rate-display" style={{ margin: 0, textAlign: 'left' }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                        <span className="plan-rate-num">18.99</span>
+                        <span className="plan-rate-pct">%</span>
+                      </div>
+                      <span className="plan-rate-lbl">Annual Subscription Fee</span>
+                      <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '8px' }}>
+                        Calculated on registered loan monthly EMI
+                      </p>
                     </div>
-                    <span className="plan-popular-tag">Most Comprehensive</span>
+
+                    <ul className="plan-fullwidth-benefits-grid">
+                      <li className="plan-spec-item"><Shield size={16} /> <span><strong>5 times / year</strong> benefit eligibility</span></li>
+                      <li className="plan-spec-item"><Clock size={16} /> <span><strong>90 days</strong> repayment buffer window</span></li>
+                      <li className="plan-spec-item"><CheckCircle size={16} /> <span><strong>Nil (0%)</strong> activation service charge</span></li>
+                      <li className="plan-spec-item"><Award size={16} /> <span><strong>Priority 24-hr</strong> underwriting desk</span></li>
+                      <li className="plan-spec-item"><CheckCircle size={16} /> <span><strong>Zero interest</strong> within 90 days</span></li>
+                      <li className="plan-spec-item"><ShieldCheck size={16} /> <span><strong>Direct lender settlement</strong> support</span></li>
+                    </ul>
                   </div>
-                  <div className="plan-rate-display">
-                    <span className="plan-rate-num">18.99</span>
-                    <span className="plan-rate-pct">%</span>
-                    <span className="plan-rate-lbl">Annual Subscription</span>
-                  </div>
-                  <ul className="plan-specs-list">
-                    <li className="plan-spec-item"><Shield size={16} /> <strong>5 times / year</strong> benefit eligibility</li>
-                    <li className="plan-spec-item"><Clock size={16} /> <strong>90 days</strong> repayment buffer window</li>
-                    <li className="plan-spec-item"><CheckCircle size={16} /> <strong>Nil (0%)</strong> activation service charge</li>
-                    <li className="plan-spec-item"><Award size={16} /> Priority 24-hr underwriting desk</li>
-                    <li className="plan-spec-item"><CheckCircle size={16} /> <strong>Zero interest</strong> within 90 days</li>
-                  </ul>
-                  <div className="plan-fee-calc-box">
-                    <span className="plan-fee-calc-lbl">Projected Annual Fee</span>
-                    <span className="plan-fee-calc-val">
-                      {formatINR(Number(formData.emi_amount) * 0.1899)}
-                    </span>
+
+                  <div className="plan-fullwidth-calc-bar">
+                    <div>
+                      <span style={{ display: 'block', fontSize: '12px', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Projected Annual Subscription Fee
+                      </span>
+                      <span style={{ fontSize: '12px', color: 'var(--color-text-body)' }}>
+                        Based on entered monthly EMI of {formData.emi_amount ? formatINR(Number(formData.emi_amount)) : '₹0'}
+                      </span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span className="plan-fee-calc-val" style={{ fontSize: '24px', color: 'var(--color-primary-navy)' }}>
+                        {formatINR(Number(formData.emi_amount) * 0.1899)}
+                      </span>
+                      <span style={{ display: 'block', fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                        (18.99% of monthly EMI)
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
