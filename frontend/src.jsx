@@ -995,8 +995,8 @@ function AdminPortal() {
   const [errorMsg, setErrorMsg] = useState('');
 
   // Login form state
-  const [loginEmail, setLoginEmail] = useState('admin@rebco.com');
-  const [loginPassword, setLoginPassword] = useState('Admin@REBCO1234');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [loginBusy, setLoginBusy] = useState(false);
 
   // New staff modal
