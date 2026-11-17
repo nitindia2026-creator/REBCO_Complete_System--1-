@@ -165,7 +165,12 @@ def health():
 
 @app.get("/plans")
 def get_plans(db: Session = Depends(get_db)):
-    plans = db.scalars(select(PlanConfig).where(PlanConfig.is_active == True)).all()
+    legacy = db.scalar(select(PlanConfig).where(PlanConfig.code == "emi_shield"))
+    if legacy:
+        db.delete(legacy)
+        db.commit()
+
+    plans = db.scalars(select(PlanConfig).where(and_(PlanConfig.is_active == True, PlanConfig.code != "emi_shield"))).all()
     return [
         {
             "id": p.id,
@@ -730,7 +735,12 @@ def update_user_status(user_id: int, data: UserUpdate, request: Request, db: Ses
 
 @app.get("/admin/plans")
 def list_admin_plans(db: Session = Depends(get_db), user: User = Depends(require_staff)):
-    plans = db.scalars(select(PlanConfig)).all()
+    legacy = db.scalar(select(PlanConfig).where(PlanConfig.code == "emi_shield"))
+    if legacy:
+        db.delete(legacy)
+        db.commit()
+
+    plans = db.scalars(select(PlanConfig).where(PlanConfig.code != "emi_shield")).all()
     return [
         {
             "id": p.id,

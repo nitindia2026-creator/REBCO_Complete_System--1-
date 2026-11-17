@@ -1092,7 +1092,7 @@ function AdminPortal() {
         setReportsData(d);
       } else if (activeTab === 'plans') {
         const d = await apiCall('/admin/plans');
-        setPlanConfigs(d);
+        setPlanConfigs((d || []).filter(p => p.code !== 'emi_shield'));
       } else if (activeTab === 'audit') {
         const d = await apiCall('/admin/audit-logs');
         setAuditLogsList(d);
@@ -2029,18 +2029,22 @@ function AdminPortal() {
               </div>
             </div>
 
-            <div className="plan-selection-grid">
-              {planConfigs.map(p => (
-                <div key={p.code} className="plan-card selected" style={{ cursor: 'default' }}>
-                  <div className="plan-card-header">
+            <div className="plan-single-container">
+              {planConfigs.filter(p => p.code !== 'emi_shield').map(p => (
+                <div key={p.code} className="plan-card-fullwidth" style={{ cursor: 'default' }}>
+                  <div className="plan-fullwidth-header">
                     <div>
-                      <span className="badge badge-gold">{p.code.toUpperCase()}</span>
-                      <h3 className="plan-card-title" style={{ marginTop: '6px' }}>{p.name}</h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                        <span className="badge badge-gold">{p.code.toUpperCase()}</span>
+                        <span className="badge badge-navy">Active Institutional Plan</span>
+                        <span className="plan-popular-tag">Pro Architecture</span>
+                      </div>
+                      <h3 className="plan-card-title" style={{ fontSize: '22px', margin: '4px 0' }}>{p.name}</h3>
+                      <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', margin: 0 }}>{p.description}</p>
                     </div>
                   </div>
-                  <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '18px' }}>{p.description}</p>
 
-                  <div className="form-grid-2" style={{ marginBottom: '18px' }}>
+                  <div className="form-grid-3" style={{ marginBottom: '22px', gap: '18px 24px' }}>
                     <div className="form-field">
                       <label className="form-label">Subscription Rate (%)</label>
                       <input
@@ -2078,11 +2082,33 @@ function AdminPortal() {
                         className="form-control"
                       />
                     </div>
+                    <div className="form-field">
+                      <label className="form-label">Activation Service Charge</label>
+                      <input
+                        type="text"
+                        value={p.activation_service_charge || 'Nil'}
+                        onChange={e => handleUpdatePlan(p.code, 'activation_service_charge', e.target.value)}
+                        className="form-control"
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label">Monthly Default Interest (%)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={p.default_interest_monthly || 1.5}
+                        onChange={e => handleUpdatePlan(p.code, 'default_interest_monthly', e.target.value)}
+                        className="form-control"
+                      />
+                    </div>
                   </div>
 
-                  <span style={{ fontSize: '11px', color: 'var(--color-text-subtle)' }}>
-                    Last Updated: {p.updated_at?.slice(0, 10)} · Automatically applies to new enrollments
-                  </span>
+                  <div className="plan-fullwidth-calc-bar">
+                    <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                      Last Updated: {p.updated_at?.slice(0, 10)} · Automatically applies to new enrollments
+                    </span>
+                    <span className="badge badge-navy">18.99% Annual Shield</span>
+                  </div>
                 </div>
               ))}
             </div>
