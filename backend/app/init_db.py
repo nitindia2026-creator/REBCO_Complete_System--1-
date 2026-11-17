@@ -13,9 +13,9 @@ def run_migrations():
     with engine.connect() as conn:
         # Check applications columns
         app_cols = [
-            ("plan_name", "VARCHAR(50) DEFAULT 'EMI Shield'"),
+            ("plan_name", "VARCHAR(50) DEFAULT 'EMI Shield Pro'"),
             ("plan_rate", "NUMERIC(6,2)"),
-            ("repayment_period_days", "INTEGER DEFAULT 60"),
+            ("repayment_period_days", "INTEGER DEFAULT 90"),
             ("assigned_to_id", "INTEGER"),
             ("verification_checklist", "TEXT"),
             ("financial_notes", "TEXT")
@@ -54,22 +54,19 @@ def run_migrations():
             except Exception:
                 pass
 
-    # 3. Seed default official plans from rebcoindia.com
+    # 3. Seed official EMI Shield Pro plan (18.99%) & clean up legacy plans
     db = SessionLocal()
     try:
-        if not db.scalar(select(PlanConfig).where(PlanConfig.code == "emi_shield")):
-            db.add(PlanConfig(
-                code="emi_shield",
-                name="EMI Shield",
-                fee_percentage=7.0,
-                avail_benefit_times=3,
-                activation_period_days=60,
-                repayment_period_days=60,
-                activation_service_charge="12.99%",
-                default_interest_monthly=1.5,
-                description="Core loan protection plan covering up to 3 EMI defaults annually with 60 days repayment window."
-            ))
-            print("Seeded plan: EMI Shield (7.0%)")
+        # Remove deprecated 7% emi_shield plan if present
+        old_plan = db.scalar(select(PlanConfig).where(PlanConfig.code == "emi_shield"))
+        if old_plan:
+            db.delete(old_plan)
+            db.commit()
+            print("Removed deprecated 7% EMI Shield plan")
+
+        # Migrate existing applications if any had old plan name
+        db.execute(text("UPDATE applications SET plan_name = 'EMI Shield Pro', plan_rate = 18.99, repayment_period_days = 90 WHERE plan_name = 'EMI Shield'"))
+        db.commit()
 
         if not db.scalar(select(PlanConfig).where(PlanConfig.code == "emi_shield_pro")):
             db.add(PlanConfig(

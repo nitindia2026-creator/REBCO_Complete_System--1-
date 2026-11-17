@@ -74,7 +74,6 @@ function CorporateFooter() {
         <div className="footer-col">
           <h4>EMI Protection</h4>
           <ul className="footer-links-list">
-            <li><a href="/enroll">EMI Shield (7%)</a></li>
             <li><a href="/enroll">EMI Shield Pro (18.99%)</a></li>
             <li><a href="https://www.rebcoindia.com/services" target="_blank" rel="noreferrer">Eligible Loan Types</a></li>
             <li><a href="https://www.rebcoindia.com/brochure" target="_blank" rel="noreferrer">Download Brochure</a></li>
@@ -381,7 +380,7 @@ function CustomerEnrollment() {
             </span>
             <h1>Protecting EMIs. Preserving Credit Scores.</h1>
             <p className="hero-subtitle">
-              Life is unpredictable, but your CIBIL reputation shouldn't be. REBCO EMI Shield ensures your loan EMIs are honored on time during temporary cash-flow transitions.
+              Life is unpredictable, but your CIBIL reputation shouldn't be. REBCO EMI Shield Pro ensures your loan EMIs are honored on time during temporary cash-flow transitions.
             </p>
             <div className="hero-highlights">
               <div className="hero-highlight-item">
@@ -389,11 +388,11 @@ function CustomerEnrollment() {
                 <span className="highlight-lbl">During Grace Period</span>
               </div>
               <div className="hero-highlight-item">
-                <span className="highlight-val">60–90 Days</span>
+                <span className="highlight-val">90 Days</span>
                 <span className="highlight-lbl">Breathing Window</span>
               </div>
               <div className="hero-highlight-item">
-                <span className="highlight-val">Up to 5x / yr</span>
+                <span className="highlight-val">5x / yr</span>
                 <span className="highlight-lbl">Annual Protection</span>
               </div>
             </div>
@@ -923,7 +922,7 @@ function CustomerEnrollment() {
                   required
                 />
                 <label htmlFor="declaration_checkbox" className="declaration-text">
-                  <strong>Applicant Legal Confirmation & Undertaking:</strong> I hereby declare that all information provided in this enrollment form is true, correct, and complete to the best of my knowledge. I understand and agree that subscription to REBCO EMI Shield / EMI Shield Pro is subject to underwriting verification, lender confirmation, and approved commercial terms. In the event of an approved claim, REBCO will remit the scheduled EMI directly to safeguard my credit score, and I undertake to reimburse REBCO within the agreed repayment period without default.
+                  <strong>Applicant Legal Confirmation & Undertaking:</strong> I hereby declare that all information provided in this enrollment form is true, correct, and complete to the best of my knowledge. I understand and agree that subscription to REBCO EMI Shield Pro is subject to underwriting verification, lender confirmation, and approved commercial terms. In the event of an approved claim, REBCO will remit the scheduled EMI directly to safeguard my credit score, and I undertake to reimburse REBCO within the agreed repayment period without default.
                 </label>
               </div>
             </div>
@@ -1585,7 +1584,6 @@ function AdminPortal() {
 
                   <select className="filter-select" value={filterPlan} onChange={e => { setFilterPlan(e.target.value); setPage(1); }}>
                     <option value="">All Plans</option>
-                    <option value="EMI Shield">EMI Shield (7%)</option>
                     <option value="EMI Shield Pro">EMI Shield Pro (18.99%)</option>
                   </select>
 

@@ -39,9 +39,9 @@ class Application(Base):
     remaining_tenure: Mapped[int] = mapped_column(Integer)
     
     # Plans & commercial terms
-    plan_name: Mapped[str] = mapped_column(String(50), default="EMI Shield")
-    plan_rate: Mapped[float|None] = mapped_column(Numeric(6,2), nullable=True)
-    repayment_period_days: Mapped[int] = mapped_column(Integer, default=60)
+    plan_name: Mapped[str] = mapped_column(String(50), default="EMI Shield Pro")
+    plan_rate: Mapped[float|None] = mapped_column(Numeric(6,2), nullable=True, default=18.99)
+    repayment_period_days: Mapped[int] = mapped_column(Integer, default=90)
     annual_subscription_fee: Mapped[float|None] = mapped_column(Numeric(14,2), nullable=True)
     subscription_commencement_date: Mapped[str|None] = mapped_column(String(10), nullable=True)
     subscription_expiry_date: Mapped[str|None] = mapped_column(String(10), nullable=True)

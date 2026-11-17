@@ -134,9 +134,9 @@ def serialize_application(a: Application, include_sensitive: bool = False):
         "remaining_tenure": a.remaining_tenure,
         
         # Plan info
-        "plan_name": a.plan_name or "EMI Shield",
-        "plan_rate": float(a.plan_rate) if a.plan_rate is not None else (18.99 if a.plan_name == "EMI Shield Pro" else 7.0),
-        "repayment_period_days": a.repayment_period_days or 60,
+        "plan_name": a.plan_name or "EMI Shield Pro",
+        "plan_rate": float(a.plan_rate) if a.plan_rate is not None else 18.99,
+        "repayment_period_days": a.repayment_period_days or 90,
         "annual_subscription_fee": float(a.annual_subscription_fee) if a.annual_subscription_fee is not None else None,
         "subscription_commencement_date": a.subscription_commencement_date,
         "subscription_expiry_date": a.subscription_expiry_date,
@@ -192,11 +192,12 @@ def create_application(data: ApplicationIn, request: Request, db: Session = Depe
     aadhaar = d.pop("aadhaar", None)
     
     # Calculate fee if not provided based on selected plan
-    plan_name = d.get("plan_name") or "EMI Shield"
+    plan_name = d.get("plan_name") or "EMI Shield Pro"
     plan = db.scalar(select(PlanConfig).where(PlanConfig.name == plan_name))
-    plan_rate = float(plan.fee_percentage) if plan else (18.99 if "Pro" in plan_name else 7.0)
+    plan_rate = float(plan.fee_percentage) if plan else 18.99
+    d["plan_name"] = plan_name
     d["plan_rate"] = plan_rate
-    d["repayment_period_days"] = plan.repayment_period_days if plan else (90 if "Pro" in plan_name else 60)
+    d["repayment_period_days"] = plan.repayment_period_days if plan else 90
     
     if d.get("annual_subscription_fee") is None:
         # Standard fee calculation: plan_rate percentage of annual EMI or monthly EMI base
@@ -320,7 +321,6 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(require_staff)
     
     # Plan distribution
     plan_counts = {
-        "EMI Shield": db.scalar(select(func.count(Application.id)).where(Application.plan_name == "EMI Shield")) or 0,
         "EMI Shield Pro": db.scalar(select(func.count(Application.id)).where(Application.plan_name == "EMI Shield Pro")) or 0
     }
     

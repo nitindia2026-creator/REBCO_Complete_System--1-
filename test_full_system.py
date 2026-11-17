@@ -14,7 +14,8 @@ def test_full_flow():
     assert r.status_code == 200
     plans = r.json()
     print("Plans returned:", [p["name"] + f" ({p['fee_percentage']}%)" for p in plans])
-    assert len(plans) >= 2
+    assert len(plans) >= 1
+    assert any(p["name"] == "EMI Shield Pro" for p in plans)
 
     print("\n=== 2. Admin Authentication ===")
     r = client.post(f"{base_url}/auth/login", json={

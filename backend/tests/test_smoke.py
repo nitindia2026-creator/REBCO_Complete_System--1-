@@ -16,9 +16,8 @@ def test_get_plans():
     response = client.get("/plans")
     assert response.status_code == 200
     plans = response.json()
-    assert len(plans) >= 2
+    assert len(plans) >= 1
     codes = [p["code"] for p in plans]
-    assert "emi_shield" in codes
     assert "emi_shield_pro" in codes
 
 def test_admin_login():
