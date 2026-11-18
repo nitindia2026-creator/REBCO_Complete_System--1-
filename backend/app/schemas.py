@@ -37,7 +37,7 @@ class ApplicationIn(BaseModel):
     remaining_tenure: int
     
     # Step 3: Subscription & Terms
-    plan_name: Optional[str] = "EMI Shield Pro"
+    plan_name: Optional[str] = "EMI Shield"
     plan_rate: Optional[float] = Field(default=18.99, ge=0)
     repayment_period_days: Optional[int] = Field(default=90, ge=30)
     annual_subscription_fee: Optional[float] = Field(default=None, ge=0)

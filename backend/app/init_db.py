@@ -13,7 +13,7 @@ def run_migrations():
     with engine.connect() as conn:
         # Check applications columns
         app_cols = [
-            ("plan_name", "VARCHAR(50) DEFAULT 'EMI Shield Pro'"),
+            ("plan_name", "VARCHAR(50) DEFAULT 'EMI Shield'"),
             ("plan_rate", "NUMERIC(6,2)"),
             ("repayment_period_days", "INTEGER DEFAULT 90"),
             ("assigned_to_id", "INTEGER"),
@@ -54,33 +54,46 @@ def run_migrations():
             except Exception:
                 pass
 
-    # 3. Seed official EMI Shield Pro plan (18.99%) & clean up legacy plans
+    # 3. Seed official EMI Shield plan (18.99%) & clean up legacy plans
     db = SessionLocal()
     try:
-        # Remove deprecated 7% emi_shield plan if present
-        old_plan = db.scalar(select(PlanConfig).where(PlanConfig.code == "emi_shield"))
-        if old_plan:
-            db.delete(old_plan)
-            db.commit()
-            print("Removed deprecated 7% EMI Shield plan")
-
         # Migrate existing applications if any had old plan name
-        db.execute(text("UPDATE applications SET plan_name = 'EMI Shield Pro', plan_rate = 18.99, repayment_period_days = 90 WHERE plan_name = 'EMI Shield'"))
+        db.execute(text("UPDATE applications SET plan_name = 'EMI Shield', plan_rate = 18.99, repayment_period_days = 90 WHERE plan_name IN ('EMI Shield Pro', 'Standard EMI Shield')"))
         db.commit()
 
-        if not db.scalar(select(PlanConfig).where(PlanConfig.code == "emi_shield_pro")):
+        # Remove deprecated emi_shield_pro plan if present
+        pro_plan = db.scalar(select(PlanConfig).where(PlanConfig.code == "emi_shield_pro"))
+        if pro_plan:
+            db.delete(pro_plan)
+            db.commit()
+            print("Removed deprecated emi_shield_pro plan entry")
+
+        plan = db.scalar(select(PlanConfig).where(PlanConfig.code == "emi_shield"))
+        if not plan:
             db.add(PlanConfig(
-                code="emi_shield_pro",
-                name="EMI Shield Pro",
+                code="emi_shield",
+                name="EMI Shield",
                 fee_percentage=18.99,
                 avail_benefit_times=5,
                 activation_period_days=60,
                 repayment_period_days=90,
                 activation_service_charge="Nil",
                 default_interest_monthly=1.5,
-                description="Premium risk mitigation plan covering up to 5 EMI defaults annually with 90 days repayment window and zero activation charge."
+                description="Comprehensive loan protection plan covering up to 5 EMI defaults annually with 90 days repayment window and zero activation charge."
             ))
-            print("Seeded plan: EMI Shield Pro (18.99%)")
+            db.commit()
+            print("Seeded plan: EMI Shield (18.99%)")
+        else:
+            plan.name = "EMI Shield"
+            plan.fee_percentage = 18.99
+            plan.avail_benefit_times = 5
+            plan.activation_period_days = 60
+            plan.repayment_period_days = 90
+            plan.activation_service_charge = "Nil"
+            plan.default_interest_monthly = 1.5
+            plan.description = "Comprehensive loan protection plan covering up to 5 EMI defaults annually with 90 days repayment window and zero activation charge."
+            db.commit()
+            print("Updated plan: EMI Shield (18.99%)")
             
         # Ensure default admin user is super_admin or admin
         admin_user = db.scalar(select(User).where(User.email == "admin@rebco.com"))

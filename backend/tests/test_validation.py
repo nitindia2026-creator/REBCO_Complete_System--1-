@@ -27,7 +27,7 @@ BASE_VALID_APP = {
     "emi_amount": 46500.0,
     "emi_due_date": 10,
     "remaining_tenure": 180,
-    "plan_name": "EMI Shield Pro",
+    "plan_name": "EMI Shield",
     "declaration": True
 }
 
@@ -36,7 +36,7 @@ def test_valid_application_submission():
     assert res.status_code == 201
     data = res.json()
     assert "application_no" in data
-    assert data["plan_name"] == "EMI Shield Pro"
+    assert data["plan_name"] == "EMI Shield"
     assert data["annual_subscription_fee"] > 0
 
 def test_invalid_indian_mobile_numbers():

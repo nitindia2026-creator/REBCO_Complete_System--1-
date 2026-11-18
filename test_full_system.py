@@ -15,7 +15,7 @@ def test_full_flow():
     plans = r.json()
     print("Plans returned:", [p["name"] + f" ({p['fee_percentage']}%)" for p in plans])
     assert len(plans) >= 1
-    assert any(p["name"] == "EMI Shield Pro" for p in plans)
+    assert any(p["name"] == "EMI Shield" for p in plans)
 
     print("\n=== 2. Admin Authentication ===")
     r = client.post(f"{base_url}/auth/login", json={
@@ -104,7 +104,7 @@ def test_full_flow():
         "emi_amount": 82000.0,
         "emi_due_date": 7,
         "remaining_tenure": 240,
-        "plan_name": "EMI Shield Pro",
+        "plan_name": "EMI Shield",
         "plan_rate": 18.99,
         "declaration": True,
         "financial_notes": "Senior Vice President. Looking for peace of mind against global job mobility."
@@ -154,7 +154,7 @@ def test_full_flow():
 
     r_patch2 = client.patch(f"{base_url}/admin/applications/{app_id}", headers=admin_headers, json={
         "status": "Approved",
-        "admin_notes": "All eligibility criteria met. EMI Shield Pro coverage confirmed.",
+        "admin_notes": "All eligibility criteria met. EMI Shield coverage confirmed.",
         "remarks": "Policy schedule issued to borrower."
     })
     assert r_patch2.status_code == 200

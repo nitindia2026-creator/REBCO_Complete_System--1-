@@ -18,7 +18,7 @@ def test_get_plans():
     plans = response.json()
     assert len(plans) >= 1
     codes = [p["code"] for p in plans]
-    assert "emi_shield_pro" in codes
+    assert "emi_shield" in codes
 
 def test_admin_login():
     response = client.post("/auth/login", json={
@@ -53,7 +53,7 @@ def test_create_application_and_retrieve():
         "emi_amount": 46500.0,
         "emi_due_date": 10,
         "remaining_tenure": 180,
-        "plan_name": "EMI Shield Pro",
+        "plan_name": "EMI Shield",
         "declaration": True
     }
     create_res = client.post("/applications", json=app_data)
@@ -61,7 +61,7 @@ def test_create_application_and_retrieve():
     res_json = create_res.json()
     assert "application_no" in res_json
     app_no = res_json["application_no"]
-    assert res_json["plan_name"] == "EMI Shield Pro"
+    assert res_json["plan_name"] == "EMI Shield"
     assert res_json["annual_subscription_fee"] > 0
     
     # 2. Login as admin to view the application

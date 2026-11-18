@@ -156,7 +156,7 @@ def serialize_application(a: Application, include_sensitive: bool = False):
         "remaining_tenure": a.remaining_tenure,
         
         # Plan info
-        "plan_name": a.plan_name or "EMI Shield Pro",
+        "plan_name": a.plan_name or "EMI Shield",
         "plan_rate": float(a.plan_rate) if a.plan_rate is not None else 18.99,
         "repayment_period_days": a.repayment_period_days or 90,
         "annual_subscription_fee": float(a.annual_subscription_fee) if a.annual_subscription_fee is not None else None,
@@ -187,12 +187,7 @@ def health():
 
 @app.get("/plans")
 def get_plans(db: Session = Depends(get_db)):
-    legacy = db.scalar(select(PlanConfig).where(PlanConfig.code == "emi_shield"))
-    if legacy:
-        db.delete(legacy)
-        db.commit()
-
-    plans = db.scalars(select(PlanConfig).where(and_(PlanConfig.is_active == True, PlanConfig.code != "emi_shield"))).all()
+    plans = db.scalars(select(PlanConfig).where(PlanConfig.is_active == True)).all()
     return [
         {
             "id": p.id,
@@ -219,7 +214,7 @@ def create_application(data: ApplicationIn, request: Request, db: Session = Depe
     aadhaar = d.pop("aadhaar", None)
     
     # Calculate fee if not provided based on selected plan
-    plan_name = d.get("plan_name") or "EMI Shield Pro"
+    plan_name = d.get("plan_name") or "EMI Shield"
     plan = db.scalar(select(PlanConfig).where(PlanConfig.name == plan_name))
     plan_rate = float(plan.fee_percentage) if plan else 18.99
     d["plan_name"] = plan_name
@@ -352,7 +347,7 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(require_staff)
     
     # Plan distribution
     plan_counts = {
-        "EMI Shield Pro": db.scalar(select(func.count(Application.id)).where(Application.plan_name == "EMI Shield Pro")) or 0
+        "EMI Shield": db.scalar(select(func.count(Application.id)).where(Application.plan_name == "EMI Shield")) or 0
     }
     
     recent_apps = db.scalars(select(Application).order_by(Application.created_at.desc()).limit(10)).all()

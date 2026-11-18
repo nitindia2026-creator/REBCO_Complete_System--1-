@@ -83,7 +83,7 @@ function CorporateFooter() {
         <div className="footer-col">
           <h4>EMI Protection</h4>
           <ul className="footer-links-list">
-            <li><a href="/enroll">EMI Shield Pro (18.99%)</a></li>
+            <li><a href="/enroll">EMI Shield (18.99%)</a></li>
             <li><a href="https://www.rebcoindia.com/services" target="_blank" rel="noreferrer">Eligible Loan Types</a></li>
             <li><a href="https://www.rebcoindia.com/brochure" target="_blank" rel="noreferrer">Download Brochure</a></li>
           </ul>
@@ -148,7 +148,7 @@ function CustomerEnrollment() {
     emi_due_date: '5',
     remaining_tenure: '',
     // Step 3: Subscription
-    plan_name: 'EMI Shield Pro',
+    plan_name: 'EMI Shield',
     plan_rate: 18.99,
     repayment_period_days: 90,
     annual_subscription_fee: '',
@@ -186,12 +186,12 @@ function CustomerEnrollment() {
       .then(d => {
         if (Array.isArray(d) && d.length) {
           setPlans(d);
-          const proPlan = d.find(p => p.code === 'emi_shield_pro') || d[0];
+          const activePlan = d.find(p => p.code === 'emi_shield') || d[0];
           setFormData(prev => ({
             ...prev,
-            plan_name: proPlan.name,
-            plan_rate: proPlan.fee_percentage,
-            repayment_period_days: proPlan.repayment_period_days
+            plan_name: activePlan.name,
+            plan_rate: activePlan.fee_percentage,
+            repayment_period_days: activePlan.repayment_period_days
           }));
         }
       })
@@ -460,7 +460,7 @@ function CustomerEnrollment() {
             </span>
             <h1>Protecting EMIs. Preserving Credit Scores.</h1>
             <p className="hero-subtitle">
-              Life is unpredictable, but your CIBIL reputation shouldn't be. REBCO EMI Shield Pro ensures your loan EMIs are honored on time during temporary cash-flow transitions.
+              Life is unpredictable, but your CIBIL reputation shouldn't be. REBCO EMI Shield ensures your loan EMIs are honored on time during temporary cash-flow transitions.
             </p>
             <div className="hero-highlights">
               <div className="hero-highlight-item">
@@ -1044,7 +1044,7 @@ function CustomerEnrollment() {
             <div>
               <div className="wizard-step-header">
                 <span className="wizard-step-tag">Step 3 of 4</span>
-                <h2>EMI Shield Pro Protection Plan</h2>
+                <h2>EMI Shield Protection Plan</h2>
                 <p className="wizard-step-desc">Institutional-grade loan risk mitigation and EMI continuity protection.</p>
               </div>
 
@@ -1055,9 +1055,9 @@ function CustomerEnrollment() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                         <span className="badge badge-navy">Recommended Package</span>
                         <span className="badge badge-gold">Active Protection</span>
-                        <span className="plan-popular-tag">Most Comprehensive</span>
+                        <span className="plan-popular-tag">Comprehensive Protection</span>
                       </div>
-                      <h3 className="plan-card-title" style={{ fontSize: '22px', margin: '4px 0' }}>EMI Shield Pro</h3>
+                      <h3 className="plan-card-title" style={{ fontSize: '22px', margin: '4px 0' }}>EMI Shield</h3>
                       <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', margin: 0 }}>
                         Maximum institutional coverage with 90-day grace protection and zero interest buffer.
                       </p>
@@ -1260,7 +1260,7 @@ function CustomerEnrollment() {
                   required
                 />
                 <label htmlFor="declaration_checkbox" className="declaration-text">
-                  <strong>Applicant Legal Confirmation & Undertaking:</strong> I hereby declare that all information provided in this enrollment form is true, correct, and complete to the best of my knowledge. I understand and agree that subscription to REBCO EMI Shield Pro is subject to underwriting verification, lender confirmation, and approved commercial terms. In the event of an approved claim, REBCO will remit the scheduled EMI directly to safeguard my credit score, and I undertake to reimburse REBCO within the agreed repayment period without default.
+                  <strong>Applicant Legal Confirmation & Undertaking:</strong> I hereby declare that all information provided in this enrollment form is true, correct, and complete to the best of my knowledge. I understand and agree that subscription to REBCO EMI Shield is subject to underwriting verification, lender confirmation, and approved commercial terms. In the event of an approved claim, REBCO will remit the scheduled EMI directly to safeguard my credit score, and I undertake to reimburse REBCO within the agreed repayment period without default.
                 </label>
               </div>
               {touched.declaration && fieldErrors.declaration && (
@@ -1927,7 +1927,7 @@ function AdminPortal() {
 
                   <select className="filter-select" value={filterPlan} onChange={e => { setFilterPlan(e.target.value); setPage(1); }}>
                     <option value="">All Plans</option>
-                    <option value="EMI Shield Pro">EMI Shield Pro (18.99%)</option>
+                    <option value="EMI Shield">EMI Shield (18.99%)</option>
                   </select>
 
                   <input
@@ -2373,14 +2373,14 @@ function AdminPortal() {
             </div>
 
             <div className="plan-single-container">
-              {planConfigs.filter(p => p.code !== 'emi_shield').map(p => (
+              {planConfigs.map(p => (
                 <div key={p.code} className="plan-card-fullwidth" style={{ cursor: 'default' }}>
                   <div className="plan-fullwidth-header">
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                         <span className="badge badge-gold">{p.code.toUpperCase()}</span>
                         <span className="badge badge-navy">Active Institutional Plan</span>
-                        <span className="plan-popular-tag">Pro Architecture</span>
+                        <span className="plan-popular-tag">Active Coverage</span>
                       </div>
                       <h3 className="plan-card-title" style={{ fontSize: '22px', margin: '4px 0' }}>{p.name}</h3>
                       <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', margin: 0 }}>{p.description}</p>
