@@ -3,9 +3,10 @@ from typing import Optional, List, Dict, Any
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request, Query
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, or_, and_, desc
 import jwt
@@ -21,8 +22,29 @@ from .security import (
     verify_password, hash_password, create_token, 
     encrypt_value, decrypt_value, mask
 )
+from .validators import validate_file_content
 
 app = FastAPI(title="REBCO Corporate Enrollment & Admin API", version="2.0.0")
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = []
+    for err in exc.errors():
+        field = str(err["loc"][-1]) if err.get("loc") else "non_field_error"
+        msg = err.get("msg", "Invalid value")
+        if msg.startswith("Value error, "):
+            msg = msg[len("Value error, "):]
+        code = str(err.get("type", "INVALID_FIELD")).upper().replace(".", "_")
+        errors.append({
+            "field": field,
+            "code": code,
+            "message": msg
+        })
+    primary_msg = errors[0]["message"] if errors else "Validation failed"
+    return JSONResponse(
+        status_code=422,
+        content={"detail": primary_msg, "errors": errors, "message": primary_msg}
+    )
 
 cors_list = [x.strip() for x in settings.cors_origins.split(",") if x.strip()]
 is_wildcard = "*" in cors_list or not cors_list
@@ -260,12 +282,16 @@ async def public_upload_document(
     a = db.scalar(select(Application).where(Application.application_no == application_no))
     if not a:
         raise HTTPException(404, "Application not found")
-    if file.content_type not in ALLOWED:
-        raise HTTPException(415, "Only PDF, JPEG and PNG files are allowed")
-    
-    content = await file.read(settings.max_upload_mb * 1024 * 1024 + 1)
-    if len(content) > settings.max_upload_mb * 1024 * 1024:
-        raise HTTPException(413, "File exceeds maximum upload size")
+    content = await file.read(5 * 1024 * 1024 + 1)
+    try:
+        detected_type, normalized_mime = validate_file_content(
+            content,
+            file.filename or "document",
+            file.content_type or "application/octet-stream",
+            max_bytes=5 * 1024 * 1024
+        )
+    except ValueError as e:
+        raise HTTPException(422, str(e))
         
     stored = uuid.uuid4().hex
     os.makedirs(settings.upload_dir, exist_ok=True)
@@ -275,7 +301,7 @@ async def public_upload_document(
         application_id=a.id,
         original_name=os.path.basename(file.filename or "document"),
         stored_name=stored,
-        content_type=file.content_type,
+        content_type=normalized_mime,
         size=len(content),
         category=category,
         status="pending"
@@ -544,11 +570,16 @@ async def admin_upload_document(
     a = db.get(Application, app_id)
     if not a:
         raise HTTPException(404, "Application not found")
-    if file.content_type not in ALLOWED:
-        raise HTTPException(415, "Only PDF, JPEG and PNG files are allowed")
-    content = await file.read(settings.max_upload_mb * 1024 * 1024 + 1)
-    if len(content) > settings.max_upload_mb * 1024 * 1024:
-        raise HTTPException(413, "File exceeds maximum upload size")
+    content = await file.read(5 * 1024 * 1024 + 1)
+    try:
+        detected_type, normalized_mime = validate_file_content(
+            content,
+            file.filename or "document",
+            file.content_type or "application/octet-stream",
+            max_bytes=5 * 1024 * 1024
+        )
+    except ValueError as e:
+        raise HTTPException(422, str(e))
         
     stored = uuid.uuid4().hex
     os.makedirs(settings.upload_dir, exist_ok=True)
@@ -558,7 +589,7 @@ async def admin_upload_document(
         application_id=a.id,
         original_name=os.path.basename(file.filename or "document"),
         stored_name=stored,
-        content_type=file.content_type,
+        content_type=normalized_mime,
         size=len(content),
         category=category,
         status="pending"

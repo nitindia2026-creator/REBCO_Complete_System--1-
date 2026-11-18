@@ -8,6 +8,15 @@ import {
   Check, X, FileCheck, Layers, Award, BarChart2, Settings, Briefcase
 } from 'lucide-react';
 import './style.css';
+import {
+  validateField,
+  validateStepFields,
+  validateFile,
+  formatAadhaarDisplay,
+  maskAadhaarDisplay,
+  formatFileSize,
+  validateVerhoeff
+} from './validators.js';
 
 const API = (import.meta.env.VITE_API_URL !== undefined && import.meta.env.VITE_API_URL !== '')
   ? import.meta.env.VITE_API_URL
@@ -163,6 +172,11 @@ function CustomerEnrollment() {
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [touched, setTouched] = useState({});
+  const [fileErrors, setFileErrors] = useState({});
+  const [aadhaarFocused, setAadhaarFocused] = useState(false);
+  const [validationSummary, setValidationSummary] = useState([]);
   const [confirmedApp, setConfirmedApp] = useState(null);
 
   // Fetch active plans from backend
@@ -194,53 +208,85 @@ function CustomerEnrollment() {
     }
   }, [formData.emi_amount, formData.plan_rate]);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
+  // Real-time input change with instant validation
+  const handleInputChange = (field, e) => {
+    let val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+
+    // Normalizations while typing
+    if (field === 'pan') {
+      val = val.replace(/\s+/g, '').toUpperCase().slice(0, 10);
+    } else if (field === 'aadhaar') {
+      val = val.replace(/\D/g, '').slice(0, 12);
+    } else if (field === 'mobile' || field === 'contact_no') {
+      val = val.replace(/\D/g, '').slice(0, 10);
+    }
+
+    const nextForm = { ...formData, [field]: val };
+    setFormData(nextForm);
+
+    // Instant real-time field validation
+    const res = validateField(field, val, nextForm);
+    setFieldErrors(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : (name === 'pan' ? value.toUpperCase() : value)
+      [field]: res.valid ? '' : res.error
+    }));
+
+    setTouched(prev => ({ ...prev, [field]: true }));
+    if (err) setErr('');
+  };
+
+  const handleBlur = (field) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+    const res = validateField(field, formData[field], formData);
+    setFieldErrors(prev => ({
+      ...prev,
+      [field]: res.valid ? '' : res.error
     }));
   };
 
-  const handleFileChange = (category, file) => {
-    setFiles(prev => ({ ...prev, [category]: file }));
-  };
-
-  const validateStep = (current) => {
-    setErr('');
-    if (current === 1) {
-      if (!formData.full_name.trim()) return 'Please enter your full name';
-      if (!formData.gender) return 'Please select your gender';
-      if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(formData.pan)) return 'Please enter a valid 10-character PAN (e.g. ABCDE1234F)';
-      if (!/^[6-9][0-9]{9}$/.test(formData.contact_no)) return 'Please enter a valid 10-digit contact number';
-      if (!/^[6-9][0-9]{9}$/.test(formData.mobile)) return 'Please enter a valid 10-digit mobile number';
-      if (!formData.email.includes('@')) return 'Please enter a valid email address';
-      if (!formData.current_address.trim()) return 'Please enter your current residential address';
-    } else if (current === 2) {
-      if (!formData.lender.trim()) return 'Please specify your primary lender / bank';
-      if (!formData.loan_account.trim()) return 'Please enter your loan account number';
-      if (Number(formData.sanctioned_amount) <= 0) return 'Please specify a valid sanctioned loan amount';
-      if (Number(formData.outstanding_balance) <= 0) return 'Please specify current outstanding balance';
-      if (Number(formData.emi_amount) <= 0) return 'Please enter your monthly EMI amount';
-      if (!formData.remaining_tenure) return 'Please specify remaining tenure in months';
-    } else if (current === 3) {
-      if (!formData.plan_name) return 'Please choose an EMI Shield plan';
+  const handleFileSlotChange = (category, file) => {
+    if (!file) {
+      setFiles(prev => ({ ...prev, [category]: null }));
+      setFileErrors(prev => ({ ...prev, [category]: '' }));
+      return;
     }
-    return null;
+
+    const res = validateFile(file, true);
+    if (!res.valid) {
+      setFileErrors(prev => ({ ...prev, [category]: res.error }));
+      setFiles(prev => ({ ...prev, [category]: null }));
+    } else {
+      setFileErrors(prev => ({ ...prev, [category]: '' }));
+      setFiles(prev => ({ ...prev, [category]: file }));
+    }
+    if (err) setErr('');
   };
 
   const handleNext = () => {
-    const errorMsg = validateStep(step);
-    if (errorMsg) {
-      setErr(errorMsg);
+    const stepRes = validateStepFields(step, formData, files);
+    if (!stepRes.isValid) {
+      // Mark all fields in current step as touched
+      setTouched(prev => {
+        const next = { ...prev };
+        Object.keys(stepRes.errors).forEach(k => { next[k] = true; });
+        return next;
+      });
+      setFieldErrors(prev => ({ ...prev, ...stepRes.errors }));
+      const errorList = Object.values(stepRes.errors);
+      setValidationSummary(errorList);
+      setErr(`Please correct the ${errorList.length} highlighted issue${errorList.length > 1 ? 's' : ''} in this step before proceeding.`);
+      window.scrollTo({ top: 220, behavior: 'smooth' });
       return;
     }
+    setErr('');
+    setValidationSummary([]);
     setStep(prev => prev + 1);
     window.scrollTo({ top: 180, behavior: 'smooth' });
   };
 
   const handlePrev = () => {
     setErr('');
+    setValidationSummary([]);
     setStep(prev => Math.max(1, prev - 1));
     window.scrollTo({ top: 180, behavior: 'smooth' });
   };
@@ -248,15 +294,43 @@ function CustomerEnrollment() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErr('');
-    if (!formData.declaration) {
-      setErr('You must confirm the applicant declaration to proceed');
+
+    // Cross-step multi-tier validation
+    const step1 = validateStepFields(1, formData, files);
+    const step2 = validateStepFields(2, formData, files);
+    const step3 = validateStepFields(3, formData, files);
+    const step4 = validateStepFields(4, formData, files);
+
+    const allErrors = { ...step1.errors, ...step2.errors, ...step3.errors, ...step4.errors };
+    if (Object.keys(allErrors).length > 0) {
+      setFieldErrors(prev => ({ ...prev, ...allErrors }));
+      setFileErrors(prev => ({ ...prev, ...step4.errors }));
+      setTouched(prev => {
+        const next = { ...prev };
+        Object.keys(allErrors).forEach(k => { next[k] = true; });
+        return next;
+      });
+      const errorList = Object.values(allErrors);
+      setValidationSummary(errorList);
+      setErr(`Submission blocked: Please resolve ${errorList.length} required field${errorList.length > 1 ? 's' : ''}.`);
+      window.scrollTo({ top: 220, behavior: 'smooth' });
       return;
     }
+
+    if (!formData.declaration) {
+      setErr('You must confirm the applicant legal declaration to proceed.');
+      return;
+    }
+
     setBusy(true);
 
     try {
       const payload = {
         ...formData,
+        pan: formData.pan.trim().toUpperCase(),
+        aadhaar: formData.aadhaar ? formData.aadhaar.replace(/\D/g, '') : null,
+        mobile: formData.mobile.replace(/\D/g, ''),
+        contact_no: formData.contact_no.replace(/\D/g, ''),
         monthly_income: formData.monthly_income ? Number(formData.monthly_income) : null,
         existing_emis: formData.existing_emis ? Number(formData.existing_emis) : null,
         sanctioned_amount: Number(formData.sanctioned_amount),
@@ -274,7 +348,9 @@ function CustomerEnrollment() {
         body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Application submission failed');
+      if (!res.ok) {
+        throw new Error(data.message || data.detail || 'Application submission failed');
+      }
 
       // Upload attached documents
       for (const [category, file] of Object.entries(files)) {
@@ -282,10 +358,14 @@ function CustomerEnrollment() {
           const fd = new FormData();
           fd.append('file', file);
           fd.append('category', category);
-          await fetch(`${API}/applications/${data.application_no}/documents`, {
+          const docRes = await fetch(`${API}/applications/${data.application_no}/documents`, {
             method: 'POST',
             body: fd
           });
+          if (!docRes.ok) {
+            const docErr = await docRes.json();
+            throw new Error(`Failed to upload ${category}: ${docErr.detail || 'Upload error'}`);
+          }
         }
       }
 
@@ -451,6 +531,19 @@ function CustomerEnrollment() {
             </div>
           )}
 
+          {validationSummary.length > 0 && (
+            <div className="validation-summary-box">
+              <div className="validation-summary-header">
+                <AlertCircle size={16} /> Action Required: Please correct the following field{validationSummary.length > 1 ? 's' : ''}:
+              </div>
+              <ul className="validation-summary-list">
+                {validationSummary.map((item, idx) => (
+                  <li key={idx}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* STEP 1: PERSONAL INFORMATION */}
           {step === 1 && (
             <div>
@@ -462,129 +555,258 @@ function CustomerEnrollment() {
 
               <div className="form-grid-3">
                 <div className="form-field span-2">
-                  <label className="form-label">Full Name as per PAN <span className="req">*</span></label>
+                  <label className="form-label">
+                    <span>Full Name as per PAN <span className="req">*</span></span>
+                    {touched.full_name && !fieldErrors.full_name && formData.full_name && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     name="full_name"
                     required
                     value={formData.full_name}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('full_name', e)}
+                    onBlur={() => handleBlur('full_name')}
+                    className={`form-control ${touched.full_name && fieldErrors.full_name ? 'has-error' : (touched.full_name && !fieldErrors.full_name && formData.full_name ? 'is-valid' : '')}`}
                     placeholder="e.g. Rajesh Kumar Sharma"
                   />
+                  {touched.full_name && fieldErrors.full_name && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.full_name}</span>
+                  )}
                 </div>
 
                 <div className="form-field">
-                  <label className="form-label">Gender <span className="req">*</span></label>
-                  <select name="gender" required value={formData.gender} onChange={handleChange} className="form-control">
+                  <label className="form-label">
+                    <span>Gender <span className="req">*</span></span>
+                    {touched.gender && !fieldErrors.gender && formData.gender && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
+                  <select
+                    name="gender"
+                    required
+                    value={formData.gender}
+                    onChange={(e) => handleInputChange('gender', e)}
+                    onBlur={() => handleBlur('gender')}
+                    className={`form-control ${touched.gender && fieldErrors.gender ? 'has-error' : (touched.gender && !fieldErrors.gender && formData.gender ? 'is-valid' : '')}`}
+                  >
                     <option value="">Select Gender</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Others">Others</option>
                   </select>
+                  {touched.gender && fieldErrors.gender && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.gender}</span>
+                  )}
                 </div>
 
                 <div className="form-field">
-                  <label className="form-label">Occupation <span className="req">*</span></label>
-                  <select name="occupation" required value={formData.occupation} onChange={handleChange} className="form-control">
+                  <label className="form-label">
+                    <span>Occupation <span className="req">*</span></span>
+                    {touched.occupation && !fieldErrors.occupation && formData.occupation && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
+                  <select
+                    name="occupation"
+                    required
+                    value={formData.occupation}
+                    onChange={(e) => handleInputChange('occupation', e)}
+                    onBlur={() => handleBlur('occupation')}
+                    className={`form-control ${touched.occupation && fieldErrors.occupation ? 'has-error' : (touched.occupation && !fieldErrors.occupation && formData.occupation ? 'is-valid' : '')}`}
+                  >
                     <option value="Salaried">Salaried (Corporate / Govt)</option>
                     <option value="Self Employed">Self Employed Professional / Business</option>
                     <option value="Funded">Funded Startup / Enterprise</option>
                     <option value="Non Funded">Non Funded Enterprise</option>
                   </select>
+                  {touched.occupation && fieldErrors.occupation && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.occupation}</span>
+                  )}
                 </div>
 
                 <div className="form-field">
-                  <label className="form-label">PAN Number <span className="req">*</span></label>
+                  <label className="form-label">
+                    <span>PAN Number <span className="req">*</span></span>
+                    {touched.pan && !fieldErrors.pan && formData.pan.length === 10 && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid Format
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     name="pan"
                     maxLength={10}
                     required
                     value={formData.pan}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('pan', e)}
+                    onBlur={() => handleBlur('pan')}
+                    className={`form-control ${touched.pan && fieldErrors.pan ? 'has-error' : (touched.pan && !fieldErrors.pan && formData.pan.length === 10 ? 'is-valid' : '')}`}
                     placeholder="ABCDE1234F"
-                    style={{ textTransform: 'uppercase' }}
+                    style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
                   />
-                  <span className="field-hint">Masked by default in admin records</span>
+                  {touched.pan && fieldErrors.pan ? (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.pan}</span>
+                  ) : (
+                    <span className="field-hint">Masked by default in administrative records</span>
+                  )}
                 </div>
 
                 <div className="form-field">
-                  <label className="form-label">Aadhaar (12 Digits)</label>
+                  <label className="form-label">
+                    <span>Aadhaar (12 Digits)</span>
+                    {touched.aadhaar && !fieldErrors.aadhaar && formData.aadhaar && formData.aadhaar.length === 12 && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid Checksum
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     name="aadhaar"
-                    maxLength={12}
-                    value={formData.aadhaar}
-                    onChange={handleChange}
-                    className="form-control"
-                    placeholder="12 digit Aadhaar number"
+                    maxLength={14}
+                    value={aadhaarFocused ? formatAadhaarDisplay(formData.aadhaar) : (formData.aadhaar && formData.aadhaar.length === 12 ? maskAadhaarDisplay(formData.aadhaar) : formatAadhaarDisplay(formData.aadhaar))}
+                    onFocus={() => setAadhaarFocused(true)}
+                    onBlur={() => {
+                      setAadhaarFocused(false);
+                      handleBlur('aadhaar');
+                    }}
+                    onChange={(e) => handleInputChange('aadhaar', e)}
+                    className={`form-control ${touched.aadhaar && fieldErrors.aadhaar ? 'has-error' : (touched.aadhaar && !fieldErrors.aadhaar && formData.aadhaar && formData.aadhaar.length === 12 ? 'is-valid' : '')}`}
+                    placeholder="XXXX XXXX XXXX"
                   />
+                  {touched.aadhaar && fieldErrors.aadhaar ? (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.aadhaar}</span>
+                  ) : (
+                    <span className="field-hint">Masked after entry. Verified via Verhoeff checksum.</span>
+                  )}
                 </div>
 
                 <div className="form-field">
-                  <label className="form-label">Contact Number <span className="req">*</span></label>
+                  <label className="form-label">
+                    <span>Contact Number <span className="req">*</span></span>
+                    {touched.contact_no && !fieldErrors.contact_no && formData.contact_no.length === 10 && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="tel"
                     name="contact_no"
                     maxLength={10}
                     required
                     value={formData.contact_no}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('contact_no', e)}
+                    onBlur={() => handleBlur('contact_no')}
+                    className={`form-control ${touched.contact_no && fieldErrors.contact_no ? 'has-error' : (touched.contact_no && !fieldErrors.contact_no && formData.contact_no.length === 10 ? 'is-valid' : '')}`}
                     placeholder="10 digit primary phone"
                   />
+                  {touched.contact_no && fieldErrors.contact_no && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.contact_no}</span>
+                  )}
                 </div>
 
                 <div className="form-field">
-                  <label className="form-label">Mobile Number <span className="req">*</span></label>
+                  <label className="form-label">
+                    <span>Mobile Number <span className="req">*</span></span>
+                    {touched.mobile && !fieldErrors.mobile && formData.mobile.length === 10 && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="tel"
                     name="mobile"
                     maxLength={10}
                     required
                     value={formData.mobile}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('mobile', e)}
+                    onBlur={() => handleBlur('mobile')}
+                    className={`form-control ${touched.mobile && fieldErrors.mobile ? 'has-error' : (touched.mobile && !fieldErrors.mobile && formData.mobile.length === 10 ? 'is-valid' : '')}`}
                     placeholder="10 digit mobile"
                   />
+                  {touched.mobile && fieldErrors.mobile && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.mobile}</span>
+                  )}
                 </div>
 
                 <div className="form-field">
-                  <label className="form-label">Email Address <span className="req">*</span></label>
+                  <label className="form-label">
+                    <span>Email Address <span className="req">*</span></span>
+                    {touched.email && !fieldErrors.email && formData.email && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="email"
                     name="email"
                     required
                     value={formData.email}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('email', e)}
+                    onBlur={() => handleBlur('email')}
+                    className={`form-control ${touched.email && fieldErrors.email ? 'has-error' : (touched.email && !fieldErrors.email && formData.email ? 'is-valid' : '')}`}
                     placeholder="name@example.com"
                   />
+                  {touched.email && fieldErrors.email && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.email}</span>
+                  )}
                 </div>
 
                 <div className="form-field span-3">
-                  <label className="form-label">Current Residential Address <span className="req">*</span></label>
+                  <label className="form-label">
+                    <span>Current Residential Address <span className="req">*</span></span>
+                    {touched.current_address && !fieldErrors.current_address && formData.current_address && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
                   <textarea
                     name="current_address"
                     required
                     value={formData.current_address}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('current_address', e)}
+                    onBlur={() => handleBlur('current_address')}
+                    className={`form-control ${touched.current_address && fieldErrors.current_address ? 'has-error' : (touched.current_address && !fieldErrors.current_address && formData.current_address ? 'is-valid' : '')}`}
                     placeholder="Complete address with flat/house number, building, area, city, pin code"
                   />
+                  {touched.current_address && fieldErrors.current_address && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.current_address}</span>
+                  )}
                 </div>
 
                 <div className="form-field span-3">
-                  <label className="form-label">Permanent Address (Leave blank if same as current)</label>
+                  <label className="form-label">
+                    <span>Permanent Address (Leave blank if same as current)</span>
+                    {touched.permanent_address && !fieldErrors.permanent_address && formData.permanent_address && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
                   <textarea
                     name="permanent_address"
                     value={formData.permanent_address}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('permanent_address', e)}
+                    onBlur={() => handleBlur('permanent_address')}
+                    className={`form-control ${touched.permanent_address && fieldErrors.permanent_address ? 'has-error' : ''}`}
                     placeholder="Permanent hometown address"
                   />
+                  {touched.permanent_address && fieldErrors.permanent_address && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.permanent_address}</span>
+                  )}
                 </div>
 
                 <div className="form-field">
@@ -593,7 +815,7 @@ function CustomerEnrollment() {
                     type="text"
                     name="organization"
                     value={formData.organization}
-                    onChange={handleChange}
+                    onChange={(e) => handleInputChange('organization', e)}
                     className="form-control"
                     placeholder="Company or Employer name"
                   />
@@ -606,7 +828,7 @@ function CustomerEnrollment() {
                     min="0"
                     name="monthly_income"
                     value={formData.monthly_income}
-                    onChange={handleChange}
+                    onChange={(e) => handleInputChange('monthly_income', e)}
                     className="form-control"
                     placeholder="e.g. 100000"
                   />
@@ -619,7 +841,7 @@ function CustomerEnrollment() {
                     min="0"
                     name="existing_emis"
                     value={formData.existing_emis}
-                    onChange={handleChange}
+                    onChange={(e) => handleInputChange('existing_emis', e)}
                     className="form-control"
                     placeholder="e.g. 20000"
                   />
@@ -639,101 +861,179 @@ function CustomerEnrollment() {
 
               <div className="form-grid-2">
                 <div className="form-field">
-                  <label className="form-label">Bank / NBFC / Lending Institution <span className="req">*</span></label>
+                  <label className="form-label">
+                    <span>Bank / NBFC / Lending Institution <span className="req">*</span></span>
+                    {touched.lender && !fieldErrors.lender && formData.lender && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     name="lender"
                     required
                     value={formData.lender}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('lender', e)}
+                    onBlur={() => handleBlur('lender')}
+                    className={`form-control ${touched.lender && fieldErrors.lender ? 'has-error' : (touched.lender && !fieldErrors.lender && formData.lender ? 'is-valid' : '')}`}
                     placeholder="e.g. HDFC Bank, SBI, ICICI, Axis Bank, Bajaj Housing"
                   />
+                  {touched.lender && fieldErrors.lender && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.lender}</span>
+                  )}
                 </div>
 
                 <div className="form-field">
-                  <label className="form-label">Loan Account Number <span className="req">*</span></label>
+                  <label className="form-label">
+                    <span>Loan Account Number <span className="req">*</span></span>
+                    {touched.loan_account && !fieldErrors.loan_account && formData.loan_account && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     name="loan_account"
                     required
                     value={formData.loan_account}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('loan_account', e)}
+                    onBlur={() => handleBlur('loan_account')}
+                    className={`form-control ${touched.loan_account && fieldErrors.loan_account ? 'has-error' : (touched.loan_account && !fieldErrors.loan_account && formData.loan_account ? 'is-valid' : '')}`}
                     placeholder="e.g. HDFC-HL-998822"
                   />
+                  {touched.loan_account && fieldErrors.loan_account && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.loan_account}</span>
+                  )}
                 </div>
 
                 <div className="form-field">
-                  <label className="form-label">Sanctioned Loan Amount (₹) <span className="req">*</span></label>
+                  <label className="form-label">
+                    <span>Sanctioned Loan Amount (₹) <span className="req">*</span></span>
+                    {touched.sanctioned_amount && !fieldErrors.sanctioned_amount && formData.sanctioned_amount && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="number"
                     min="0"
                     name="sanctioned_amount"
                     required
                     value={formData.sanctioned_amount}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('sanctioned_amount', e)}
+                    onBlur={() => handleBlur('sanctioned_amount')}
+                    className={`form-control ${touched.sanctioned_amount && fieldErrors.sanctioned_amount ? 'has-error' : (touched.sanctioned_amount && !fieldErrors.sanctioned_amount && formData.sanctioned_amount ? 'is-valid' : '')}`}
                     placeholder="Total sanctioned amount"
                   />
+                  {touched.sanctioned_amount && fieldErrors.sanctioned_amount && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.sanctioned_amount}</span>
+                  )}
                 </div>
 
                 <div className="form-field">
-                  <label className="form-label">Current Outstanding Balance (₹) <span className="req">*</span></label>
+                  <label className="form-label">
+                    <span>Current Outstanding Balance (₹) <span className="req">*</span></span>
+                    {touched.outstanding_balance && !fieldErrors.outstanding_balance && formData.outstanding_balance && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="number"
                     min="0"
                     name="outstanding_balance"
                     required
                     value={formData.outstanding_balance}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('outstanding_balance', e)}
+                    onBlur={() => handleBlur('outstanding_balance')}
+                    className={`form-control ${touched.outstanding_balance && fieldErrors.outstanding_balance ? 'has-error' : (touched.outstanding_balance && !fieldErrors.outstanding_balance && formData.outstanding_balance ? 'is-valid' : '')}`}
                     placeholder="Principal balance remaining"
                   />
+                  {touched.outstanding_balance && fieldErrors.outstanding_balance && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.outstanding_balance}</span>
+                  )}
                 </div>
 
                 <div className="form-field">
-                  <label className="form-label">Monthly EMI Amount (₹) <span className="req">*</span></label>
+                  <label className="form-label">
+                    <span>Monthly EMI Amount (₹) <span className="req">*</span></span>
+                    {touched.emi_amount && !fieldErrors.emi_amount && formData.emi_amount && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="number"
                     min="1"
                     name="emi_amount"
                     required
                     value={formData.emi_amount}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('emi_amount', e)}
+                    onBlur={() => handleBlur('emi_amount')}
+                    className={`form-control ${touched.emi_amount && fieldErrors.emi_amount ? 'has-error' : (touched.emi_amount && !fieldErrors.emi_amount && formData.emi_amount ? 'is-valid' : '')}`}
                     placeholder="e.g. 45000"
                   />
+                  {touched.emi_amount && fieldErrors.emi_amount && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.emi_amount}</span>
+                  )}
                 </div>
 
                 <div className="form-field">
-                  <label className="form-label">EMI Due Date (Day of Month) <span className="req">*</span></label>
+                  <label className="form-label">
+                    <span>EMI Due Date (Day of Month) <span className="req">*</span></span>
+                    {touched.emi_due_date && !fieldErrors.emi_due_date && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
                   <select
                     name="emi_due_date"
                     required
                     value={formData.emi_due_date}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('emi_due_date', e)}
+                    onBlur={() => handleBlur('emi_due_date')}
+                    className={`form-control ${touched.emi_due_date && fieldErrors.emi_due_date ? 'has-error' : (touched.emi_due_date && !fieldErrors.emi_due_date ? 'is-valid' : '')}`}
                   >
                     {[...Array(31)].map((_, i) => (
                       <option key={i + 1} value={i + 1}>{i + 1} of every month</option>
                     ))}
                   </select>
+                  {touched.emi_due_date && fieldErrors.emi_due_date && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.emi_due_date}</span>
+                  )}
                 </div>
 
                 <div className="form-field">
-                  <label className="form-label">Remaining Tenure (Months) <span className="req">*</span></label>
+                  <label className="form-label">
+                    <span>Remaining Tenure (Months) <span className="req">*</span></span>
+                    {touched.remaining_tenure && !fieldErrors.remaining_tenure && formData.remaining_tenure && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="number"
                     min="12"
                     name="remaining_tenure"
                     required
                     value={formData.remaining_tenure}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('remaining_tenure', e)}
+                    onBlur={() => handleBlur('remaining_tenure')}
+                    className={`form-control ${touched.remaining_tenure && fieldErrors.remaining_tenure ? 'has-error' : (touched.remaining_tenure && !fieldErrors.remaining_tenure && formData.remaining_tenure ? 'is-valid' : '')}`}
                     placeholder="e.g. 180 (Min 12 months)"
                   />
-                  <span className="field-hint">Minimum eligible loan tenure is 12 months</span>
+                  {touched.remaining_tenure && fieldErrors.remaining_tenure ? (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.remaining_tenure}</span>
+                  ) : (
+                    <span className="field-hint">Minimum eligible loan tenure is 12 months</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -809,41 +1109,70 @@ function CustomerEnrollment() {
 
               <div className="form-grid-3">
                 <div className="form-field">
-                  <label className="form-label">Subscription Commencement Date</label>
+                  <label className="form-label">
+                    <span>Subscription Commencement Date <span className="req">*</span></span>
+                    {touched.subscription_commencement_date && !fieldErrors.subscription_commencement_date && formData.subscription_commencement_date && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="date"
                     name="subscription_commencement_date"
+                    required
                     value={formData.subscription_commencement_date}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('subscription_commencement_date', e)}
+                    onBlur={() => handleBlur('subscription_commencement_date')}
+                    className={`form-control ${touched.subscription_commencement_date && fieldErrors.subscription_commencement_date ? 'has-error' : (touched.subscription_commencement_date && !fieldErrors.subscription_commencement_date ? 'is-valid' : '')}`}
                   />
+                  {touched.subscription_commencement_date && fieldErrors.subscription_commencement_date && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.subscription_commencement_date}</span>
+                  )}
                 </div>
+
                 <div className="form-field">
-                  <label className="form-label">Place of Application</label>
+                  <label className="form-label">
+                    <span>Place of Application <span className="req">*</span></span>
+                    {touched.place && !fieldErrors.place && formData.place && (
+                      <span style={{ color: '#2E7D32', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <CheckCircle size={12} /> Valid
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     name="place"
+                    required
                     value={formData.place}
-                    onChange={handleChange}
-                    className="form-control"
+                    onChange={(e) => handleInputChange('place', e)}
+                    onBlur={() => handleBlur('place')}
+                    className={`form-control ${touched.place && fieldErrors.place ? 'has-error' : (touched.place && !fieldErrors.place ? 'is-valid' : '')}`}
+                    placeholder="e.g. Pune, Mumbai, Delhi"
                   />
+                  {touched.place && fieldErrors.place && (
+                    <span className="field-error-msg"><AlertCircle size={13} /> {fieldErrors.place}</span>
+                  )}
                 </div>
+
                 <div className="form-field">
-                  <label className="form-label">Form Date</label>
+                  <label className="form-label">Form Submission Date</label>
                   <input
                     type="date"
                     name="form_date"
                     value={formData.form_date}
-                    onChange={handleChange}
+                    onChange={(e) => handleInputChange('form_date', e)}
                     className="form-control"
+                    disabled
                   />
                 </div>
+
                 <div className="form-field span-3">
                   <label className="form-label">Special Notes / Loan Terms (Optional)</label>
                   <textarea
                     name="financial_notes"
                     value={formData.financial_notes}
-                    onChange={handleChange}
+                    onChange={(e) => handleInputChange('financial_notes', e)}
                     className="form-control"
                     placeholder="Enter any additional context or existing loan concessions..."
                   />
@@ -858,19 +1187,19 @@ function CustomerEnrollment() {
               <div className="wizard-step-header">
                 <span className="wizard-step-tag">Step 4 of 4</span>
                 <h2>KYC & Loan Documentation</h2>
-                <p className="wizard-step-desc">Upload supporting files for faster verification (PDF, JPG, PNG; max 10 MB each).</p>
+                <p className="wizard-step-desc">Upload supporting files for faster verification (PDF, JPG, PNG; max 5 MB each).</p>
               </div>
 
               <div className="doc-upload-grid">
                 {[
-                  { key: 'pan', label: 'PAN Card Copy', req: true, desc: 'Government issued PAN Card (Clear photo or PDF)' },
-                  { key: 'aadhaar', label: 'Aadhaar Card', req: false, desc: 'Masked Aadhaar copy if applicable' },
-                  { key: 'loan_sanction', label: 'Loan Sanction Letter', req: true, desc: 'Official sanction letter from your lender/bank' },
-                  { key: 'loan_statement', label: 'Loan Account Statement', req: true, desc: 'Latest 3 months repayment statement' },
-                  { key: 'income_proof', label: 'Salary Slip / Income Proof', req: true, desc: 'Latest 3 salary slips or ITR acknowledgment' },
-                  { key: 'bank_statement', label: 'Bank Statement (6 Months)', req: true, desc: 'Operating account statement where EMI is debited' }
+                  { key: 'pan', label: 'PAN Card Copy', req: true, desc: 'Government issued PAN Card (Clear photo or PDF, max 5 MB)' },
+                  { key: 'aadhaar', label: 'Aadhaar Card', req: false, desc: 'Masked Aadhaar copy if applicable (max 5 MB)' },
+                  { key: 'loan_sanction', label: 'Loan Sanction Letter', req: true, desc: 'Official sanction letter from lender (max 5 MB)' },
+                  { key: 'loan_statement', label: 'Loan Account Statement', req: true, desc: 'Latest 3 months repayment statement (max 5 MB)' },
+                  { key: 'income_proof', label: 'Salary Slip / Income Proof', req: true, desc: 'Latest 3 salary slips or ITR acknowledgment (max 5 MB)' },
+                  { key: 'bank_statement', label: 'Bank Statement (6 Months)', req: true, desc: 'Operating account statement for EMI debit (max 5 MB)' }
                 ].map(slot => (
-                  <div key={slot.key} className={`doc-slot-card ${files[slot.key] ? 'has-file' : ''}`}>
+                  <div key={slot.key} className={`doc-slot-card ${files[slot.key] ? 'has-file' : ''} ${fileErrors[slot.key] ? 'has-error' : ''}`}>
                     <div className="doc-slot-header">
                       <span className="doc-slot-title">{slot.label}</span>
                       <span className={`doc-slot-badge ${slot.req ? 'req' : 'opt'}`}>
@@ -882,12 +1211,15 @@ function CustomerEnrollment() {
                       {files[slot.key] ? (
                         <>
                           <div className="uploaded-file-info">
-                            <CheckCircle size={14} /> {files[slot.key].name}
+                            <CheckCircle size={14} />
+                            <span style={{ fontWeight: 600 }}>{files[slot.key].name}</span>
+                            <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>({formatFileSize(files[slot.key].size)})</span>
                           </div>
                           <button
                             type="button"
                             className="remove-file-btn"
-                            onClick={() => handleFileChange(slot.key, null)}
+                            onClick={() => handleFileSlotChange(slot.key, null)}
+                            title="Remove file"
                           >
                             <X size={16} />
                           </button>
@@ -901,30 +1233,41 @@ function CustomerEnrollment() {
                             accept=".pdf,.jpg,.jpeg,.png"
                             onChange={(e) => {
                               if (e.target.files && e.target.files[0]) {
-                                handleFileChange(slot.key, e.target.files[0]);
+                                handleFileSlotChange(slot.key, e.target.files[0]);
                               }
                             }}
                           />
                         </label>
                       )}
                     </div>
+                    {fileErrors[slot.key] && (
+                      <span className="field-error-msg" style={{ marginTop: '8px' }}>
+                        <AlertCircle size={13} /> {fileErrors[slot.key]}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
 
-              <div className="declaration-card">
+              <div className={`declaration-card ${touched.declaration && fieldErrors.declaration ? 'has-error' : ''}`} style={{ marginTop: '24px' }}>
                 <input
                   type="checkbox"
                   id="declaration_checkbox"
                   name="declaration"
                   checked={formData.declaration}
-                  onChange={handleChange}
+                  onChange={(e) => handleInputChange('declaration', e)}
+                  onBlur={() => handleBlur('declaration')}
                   required
                 />
                 <label htmlFor="declaration_checkbox" className="declaration-text">
                   <strong>Applicant Legal Confirmation & Undertaking:</strong> I hereby declare that all information provided in this enrollment form is true, correct, and complete to the best of my knowledge. I understand and agree that subscription to REBCO EMI Shield Pro is subject to underwriting verification, lender confirmation, and approved commercial terms. In the event of an approved claim, REBCO will remit the scheduled EMI directly to safeguard my credit score, and I undertake to reimburse REBCO within the agreed repayment period without default.
                 </label>
               </div>
+              {touched.declaration && fieldErrors.declaration && (
+                <span className="field-error-msg" style={{ marginTop: '8px', paddingLeft: '4px' }}>
+                  <AlertCircle size={14} /> {fieldErrors.declaration}
+                </span>
+              )}
             </div>
           )}
 
