@@ -106,7 +106,7 @@ function CorporateFooter() {
           <div className="footer-meta-block">
             <span><strong>Direct Line:</strong> +91 84088 83369</span>
             <span><strong>Email:</strong> info@rebcoindia.com</span>
-            <span><strong>Hours:</strong> Mon - Sat: 9:30 AM - 6:30 PM</span>
+            <span><strong>Hours:</strong> Mon - Sat: 10:00 AM - 7:00 PM</span>
           </div>
         </div>
       </div>
